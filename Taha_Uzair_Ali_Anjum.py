@@ -2,9 +2,6 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow import keras
-import logging, os
-logging.disable(logging.WARNING)
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" 
 
 
 def load_MNIST_for_adaboost():
@@ -39,22 +36,7 @@ class DecisionStump:
         # o si es menor que el umbral y la polaridad es -1, devolver 1 (pertenece a la clase)
         # Si no, devolver -1 (no pertenece a la clase)
 
-n_features = 3
-stump = DecisionStump(n_features)
 
-# Generar un conjunto de datos de prueba (por ejemplo, 5 muestras con 3 características)
-X = np.random.rand(5, n_features)
-
-# Obtener las predicciones del DecisionStump
-predictions = stump.predict(X)
-
-# Imprimir las características seleccionadas, el umbral y la polaridad del DecisionStump
-print(f"Característica seleccionada: {stump.caracteristica}")
-print(f"Umbral: {stump.umbral}")
-print(f"Polaridad: {stump.polaridad}")
-
-# Imprimir las predicciones
-print(f"Predicciones: {predictions}")
 
 
 class Adaboost:
