@@ -2,6 +2,10 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow import keras
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.datasets import fetch_openml
+import time
 
 
 def load_MNIST_for_adaboost():
@@ -18,87 +22,150 @@ def load_MNIST_for_adaboost():
 
     return X_train, Y_train, X_test, Y_test
 
+X_train, Y_train, X_test, Y_test = load_MNIST_for_adaboost()
 
 class DecisionStump:
     ## Constructor de clase, con número de características
     def __init__(self, n_features):
         # Seleccionar al azar una característica, un umbral y una polaridad.
-        self.caracteristica = random.randint(0, n_features - 1)
-        self.umbral = random.uniform(0, 1)
-        self.polaridad = random.choice([-1, 1])
+        self.caracteristica = np.random.randint(0, n_features)
+        self.umbral = np.random.rand()
+        self.polaridad = np.random.choice([-1, 1])
         
         
     ## Método para obtener una predicción con el clasificador débil
     def predict(self, X):
-        predictions = np.where(X[:, self.caracteristica] * self.polaridad > self.umbral * self.polaridad, 1, -1)
+        X_column = X[:, self.caracteristica]
+        # Inicializamos un arreglo de predicciones con todos los elementos como 1.
+        predictions = np.ones(X.shape[0])
+        # Actualizamos las predicciones a -1 cuando carac*pol<umbral*pol
+        predictions[(self.polaridad * X_column) < (self.polaridad * self.umbral)] = -1
         return predictions
-        # Si la característica que comprueba este clasificador es mayor que el umbral y la polaridad es 1
-        # o si es menor que el umbral y la polaridad es -1, devolver 1 (pertenece a la clase)
-        # Si no, devolver -1 (no pertenece a la clase)
-
 
 
 
 class Adaboost:
+    ## Constructor de clase, con número de clasificadores e intentos por clasificador
     def __init__(self, T=5, A=20):
+        # Dar valores a los parámetros del clasificador e iniciar la lista de clasificadores débiles vacía
         self.T = T
         self.A = A
-        self.classifiers = []
+        self.clfs = []
 
+    ## Método para entrenar un clasificador fuerte a partir de clasificadores débiles mediante Adaboost
+    ## Método para entrenar un clasificador fuerte a partir de clasificadores débiles mediante Adaboost
     def fit(self, X, Y, verbose=False):
         n_samples, n_features = X.shape
-        w = np.ones(n_samples) / n_samples
 
-        for _ in range(self.T):
-            best_classifier = None
-            best_error = float('inf')
+        # Iniciar pesos de las observaciones a 1/n_observaciones
+        w = np.full(n_samples, 1 / n_samples)
 
-            for _ in range(self.A):
-                classifier = DecisionStump(n_features)
-                predictions = classifier.predict(X)
+        self.clfs = []
+
+        if verbose:
+            print(f"Entrenando clasificador Adaboost para el dígito {Y[0]}, T={self.T}, A={self.A}")
+            print("Entrenando clasificadores de umbral (con dimensión, umbral, dirección y error):")
+
+        # Bucle de entrenamiento Adaboost: desde 1 hasta T repetir
+        start_time = time.time()
+        for t in range(1, self.T + 1):
+        
+            best_clf = None
+            min_error = float("inf")
+
+            # Bucle de búsqueda de un buen clasificador débil: desde 1 hasta A repetir
+            for a in range(1, self.A + 1):
+                # Crear un nuevo clasificador débil aleatorio
+                clf = DecisionStump(n_features)
+                predictions = clf.predict(X)
+
+                # Calcular el error: comparar predicciones con los valores deseados
                 error = np.sum(w * (predictions != Y))
 
-                if error < best_error:
-                    best_error = error
-                    best_classifier = classifier
+                if error < min_error:
+                    best_clf = clf
+                    min_error = error
 
-            alpha = 0.5 * np.log((1 - best_error) / (best_error + 1e-10))
-            self.classifiers.append((best_classifier, alpha))
+            # Calcular el valor de alfa y las predicciones del mejor clasificador débil
+            EPS = 1e-10
+            best_clf.alpha = 0.5 * np.log((1.0 - min_error + EPS) / (min_error + EPS))
+            best_predictions = best_clf.predict(X)
 
-            predictions = best_classifier.predict(X)
-            factor = np.exp(-alpha * Y * predictions)
-            w = w * factor
-            w = w / np.sum(w)
+            # Actualizar pesos de las observaciones en función de las predicciones, los valores deseados y alfa
+            w *= np.exp(-best_clf.alpha * Y * best_predictions)
+            # Normalizar a 1 los pesos
+            w /= np.sum(w)
+
+            # Guardar el clasificador en la lista de clasificadores de Adaboost
+            self.clfs.append(best_clf)
 
             if verbose:
-                print(f"Añadido clasificador: {best_classifier.caracteristica}, {best_classifier.umbral}, {best_classifier.polaridad}, {best_error}")
+                print(f"Añadido clasificador {t}: {best_clf.caracteristica}, {best_clf.umbral:.4f}, "
+                      f"{'' if best_clf.polaridad == 1 else '-'}1, {min_error:.6f}")
 
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        # Calcular tasas de acierto
+        y_train_pred = self.predict(X)
+        y_test_pred = self.predict(X_test)
+
+        accuracy_train = accuracy_score(Y, y_train_pred)
+        accuracy_test = accuracy_score(Y_test, y_test_pred)
+
+        if verbose:
+            print(f"Tasas acierto (train, test) y tiempo: {accuracy_train * 100:.2f}%, {accuracy_test * 100:.2f}%, "
+                  f"{elapsed_time:.3f} s.")
+
+    ## Método para obtener una predicción con el clasificador fuerte Adaboost
     def predict(self, X):
-        final_predictions = np.zeros(X.shape[0])
-        for classifier, alpha in self.classifiers:
-            final_predictions += alpha * classifier.predict(X)
+        clf_preds = [clf.alpha * clf.predict(X) for clf in self.clfs]
+        y_pred = np.sum(clf_preds, axis=0)
+        y_pred = np.sign(y_pred)
 
-        return np.sign(final_predictions)
+        return y_pred
 
-# Tu implementación del DecisionStump aquí
 
-# Ejemplo de uso
-if __name__ == "__main__":
-    # Cargar datos de MNIST y dividir en conjunto de entrenamiento y prueba
-    # X_train, Y_train, X_test, Y_test = cargar_datos_mnist()
-    X_train, Y_train, X_test, Y_test = load_MNIST_for_adaboost()
+def entrenamiento(class_digit, T, A, verbose=False):
+    # Cargar los datos de MNIST utilizando la función proporcionada
+    X_train, y_train, X_test, y_test = load_MNIST_for_adaboost()
 
-    # Crear y entrenar el clasificador Adaboost
-    adaboost = Adaboost(T=20, A=10)
-    adaboost.fit(X_train, Y_train, verbose=True)
+    # Filtrar para obtener solo la clase deseada
+    mask_train = (y_train == class_digit)
+    mask_test = (y_test == class_digit)
 
-    # Realizar predicciones en el conjunto de entrenamiento y prueba
-    train_predictions = adaboost.predict(X_train)
-    test_predictions = adaboost.predict(X_test)
+    X_train_class = X_train[mask_train]
+    y_train_class = y_train[mask_train]
+    X_test_class = X_test[mask_test]
+    y_test_class = y_test[mask_test]
+
+    # Dividir los datos en conjuntos de entrenamiento y prueba
+    X_train_split, X_test_split, y_train_split, y_test_split = train_test_split(
+        np.vstack((X_train_class, X_test_class)),
+        np.concatenate((y_train_class, y_test_class)),
+        test_size=0.2,
+        random_state=42
+    )
+
+    # Crear y entrenar el clasificador Adaboost con posibilidad de imprimir información detallada
+    adaboost_classifier = Adaboost(T=T, A=A)
+    adaboost_classifier.fit(X_train_split, y_train_split, verbose=verbose)
+
+    # Hacer predicciones en conjuntos de entrenamiento y prueba
+    y_train_pred = adaboost_classifier.predict(X_train_split)
+    y_test_pred = adaboost_classifier.predict(X_test_split)
 
     # Calcular tasas de acierto
-    train_accuracy = np.mean(train_predictions == Y_train)
-    test_accuracy = np.mean(test_predictions == Y_test)
+    accuracy_train = accuracy_score(y_train_split, y_train_pred)
+    accuracy_test = accuracy_score(y_test_split, y_test_pred)
 
-    print(f"Tasa de acierto en entrenamiento: {train_accuracy * 100:.2f}%")
-    print(f"Tasa de acierto en prueba: {test_accuracy * 100:.2f}%")
+   
+
+    
+    
+def main():
+    entrenamiento(class_digit=5, T=5, A=20, verbose=True)
+
+
+if __name__ == "__main__":
+    main()
