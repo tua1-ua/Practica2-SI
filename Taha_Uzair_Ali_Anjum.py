@@ -1,4 +1,3 @@
-import random
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow import keras
@@ -8,21 +7,21 @@ from sklearn.datasets import fetch_openml
 import time
 
 
-def load_MNIST_for_adaboost():
+def load_MNIST_for_adaboost(digit):
     # Cargar los datos de entrenamiento y test tal y como nos los sirve keras (MNIST de YannLecun)
     (X_train, Y_train), (X_test, Y_test) = keras.datasets.mnist.load_data()
+
     # Formatear imágenes a vectores de floats y normalizar
     X_train = X_train.reshape((X_train.shape[0], 28*28)).astype("float32") / 255.0
     X_test = X_test.reshape((X_test.shape[0], 28*28)).astype("float32") / 255.0
-    #X_train = X_train.astype("float32") / 255.0
-    #X_test = X_test.astype("float32") / 255.0
+
     # Formatear las clases a enteros con signo para aceptar clase -1
-    Y_train = Y_train.astype("int8")
-    Y_test = Y_test.astype("int8")
+    Y_train_bin = np.where(Y_train == digit, 1, -1)
+    Y_test_bin = np.where(Y_test == digit, 1, -1)
 
-    return X_train, Y_train, X_test, Y_test
+    return X_train, Y_train_bin, X_test, Y_test_bin
 
-X_train, Y_train, X_test, Y_test = load_MNIST_for_adaboost()
+
 
 class DecisionStump:
     ## Constructor de clase, con número de características
@@ -54,17 +53,13 @@ class Adaboost:
 
     ## Método para entrenar un clasificador fuerte a partir de clasificadores débiles mediante Adaboost
     ## Método para entrenar un clasificador fuerte a partir de clasificadores débiles mediante Adaboost
-    def fit(self, X, Y, verbose=False):
+    def fit(self, X, Y, verbose=False):  # Modified to include test set
         n_samples, n_features = X.shape
 
         # Iniciar pesos de las observaciones a 1/n_observaciones
         w = np.full(n_samples, 1 / n_samples)
 
         self.clfs = []
-
-        if verbose:
-            print(f"Entrenando clasificador Adaboost para el dígito {Y[0]}, T={self.T}, A={self.A}")
-            print("Entrenando clasificadores de umbral (con dimensión, umbral, dirección y error):")
 
         # Bucle de entrenamiento Adaboost: desde 1 hasta T repetir
         start_time = time.time()
@@ -100,72 +95,48 @@ class Adaboost:
             self.clfs.append(best_clf)
 
             if verbose:
-                print(f"Añadido clasificador {t}: {best_clf.caracteristica}, {best_clf.umbral:.4f}, "
+                print(f"Añadido el clasificador {t}: {best_clf.caracteristica}, {best_clf.umbral:.4f}, "
                       f"{'' if best_clf.polaridad == 1 else '-'}1, {min_error:.6f}")
 
         end_time = time.time()
         elapsed_time = end_time - start_time
 
-        # Calcular tasas de acierto
-        y_train_pred = self.predict(X)
-        y_test_pred = self.predict(X_test)
-
-        accuracy_train = accuracy_score(Y, y_train_pred)
-        accuracy_test = accuracy_score(Y_test, y_test_pred)
-
-        if verbose:
-            print(f"Tasas acierto (train, test) y tiempo: {accuracy_train * 100:.2f}%, {accuracy_test * 100:.2f}%, "
-                  f"{elapsed_time:.3f} s.")
-
+        
+   
     ## Método para obtener una predicción con el clasificador fuerte Adaboost
     def predict(self, X):
         clf_preds = [clf.alpha * clf.predict(X) for clf in self.clfs]
         y_pred = np.sum(clf_preds, axis=0)
         y_pred = np.sign(y_pred)
-
         return y_pred
 
 
-def entrenamiento(class_digit, T, A, verbose=False):
-    # Cargar los datos de MNIST utilizando la función proporcionada
-    X_train, y_train, X_test, y_test = load_MNIST_for_adaboost()
+def tareas_1A_y_1B_adaboost_binario(clase, T, A, verbose=False):
+    X_entrenamiento, Y_entrenamiento, X_prueba, Y_prueba = load_MNIST_for_adaboost(clase)
+    adaboost = Adaboost(T=T, A=A)
 
-    # Filtrar para obtener solo la clase deseada
-    mask_train = (y_train == class_digit)
-    mask_test = (y_test == class_digit)
+    inicio = time.time() 
 
-    X_train_class = X_train[mask_train]
-    y_train_class = y_train[mask_train]
-    X_test_class = X_test[mask_test]
-    y_test_class = y_test[mask_test]
+    if verbose:
+        print(f"Entrenando clasificador Adaboost para el dígito {clase}, T={T}, A={A}")
+        print("Entrenando clasificadores de umbral (con dimensión, umbral, dirección y error):")
 
-    # Dividir los datos en conjuntos de entrenamiento y prueba
-    X_train_split, X_test_split, y_train_split, y_test_split = train_test_split(
-        np.vstack((X_train_class, X_test_class)),
-        np.concatenate((y_train_class, y_test_class)),
-        test_size=0.2,
-        random_state=42
-    )
+    adaboost.fit(X_entrenamiento, Y_entrenamiento, verbose=verbose)
 
-    # Crear y entrenar el clasificador Adaboost con posibilidad de imprimir información detallada
-    adaboost_classifier = Adaboost(T=T, A=A)
-    adaboost_classifier.fit(X_train_split, y_train_split, verbose=verbose)
+    fin = time.time()
 
-    # Hacer predicciones en conjuntos de entrenamiento y prueba
-    y_train_pred = adaboost_classifier.predict(X_train_split)
-    y_test_pred = adaboost_classifier.predict(X_test_split)
+    entrenamiento_predicciones = adaboost.predict(X_entrenamiento)
+    prueba_predicciones = adaboost.predict(X_prueba)
 
-    # Calcular tasas de acierto
-    accuracy_train = accuracy_score(y_train_split, y_train_pred)
-    accuracy_test = accuracy_score(y_test_split, y_test_pred)
+    aciertos_entrenamiento = np.mean(entrenamiento_predicciones == Y_entrenamiento) * 100
+    aciertos_test = np.mean(prueba_predicciones == Y_prueba) * 100
+    t_ejec = fin - inicio
 
-   
+    if verbose:
+        print(f"Tasas acierto (train, test) y tiempo: {aciertos_entrenamiento:.2f}%, {aciertos_test:.2f}%, {t_ejec:.3f} s.")
 
+    return {"aciertos_entrenamiento": aciertos_entrenamiento, "aciertos_test": aciertos_test, "tiempo_ejecución": t_ejec}
     
-    
-def main():
-    entrenamiento(class_digit=5, T=5, A=20, verbose=True)
-
-
+     
 if __name__ == "__main__":
-    main()
+    rend_1A = tareas_1A_y_1B_adaboost_binario(clase=9, T=180, A=20, verbose=True)
