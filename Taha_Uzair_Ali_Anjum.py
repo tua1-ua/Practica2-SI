@@ -8,8 +8,9 @@ import time
 from keras.datasets import mnist
 
 
-
+#########################################################################
 # Cargamos el dataset para un dígito en específico
+######################################################################### 
 def load_MNIST_for_adaboost_dig(digit):
     # Cargar los datos de entrenamiento y test tal y como nos los sirve keras (MNIST de YannLecun)
     (X_train, Y_train), (X_test, Y_test) = keras.datasets.mnist.load_data()
@@ -24,7 +25,10 @@ def load_MNIST_for_adaboost_dig(digit):
 
     return X_train, Y_train_bin, X_test, Y_test_bin
 
+
+#########################################################################
 # Cargamos el dataset para todos los dígitos
+######################################################################### 
 def load_MNIST_for_adaboost():
     # Cargar los datos de entrenamiento y test tal y como nos los sirve keras (MNIST de YannLecun)
     (X_train, Y_train), (X_test, Y_test) = keras.datasets.mnist.load_data()
@@ -40,7 +44,9 @@ def load_MNIST_for_adaboost():
     return X_train, Y_train, X_test, Y_test
 
 
-
+#########################################################################
+# La clase DecisionStump (clasificador débil)
+######################################################################### 
 class DecisionStump:
     ## Constructor de clase, con número de características
     def __init__(self, n_features):
@@ -59,6 +65,10 @@ class DecisionStump:
         predictions[(self.polaridad * X_column) < (self.polaridad * self.umbral)] = -1
         return predictions
 
+
+#########################################################################
+# La clase Adaboost (clasificador fuerte)
+######################################################################### 
 class Adaboost:
     ## Constructor de clase, con número de clasificadores e intentos por clasificador
     def __init__(self, T=5, A=20):
@@ -125,9 +135,11 @@ class Adaboost:
         y_pred = np.sum(clf_preds, axis=0)
         y_pred = np.sign(y_pred)
         return y_pred
-    
-    
 
+
+#########################################################################
+# La clase AdaboostMulticlase (multiclasificador fuerte-no óptimo)
+#########################################################################     
 class AdaboostMulticlase:
     def __init__(self, digitos=10, T=5, A=20):
         self.digitos = digitos
@@ -137,7 +149,7 @@ class AdaboostMulticlase:
         for class_index, classifier in enumerate(self.classifiers):
             print(f"Entrenando el clasificador multiclase para la clase {class_index}")
             binary_labels = self._create_binary_labels(Y, class_index)
-            classifier.fit(X, binary_labels)
+            classifier.fit(X, binary_labels, verbose=False)
 
     def predict(self, X):
         predictions = np.array([classifier.predict(X) for classifier in self.classifiers])
@@ -153,6 +165,32 @@ class AdaboostMulticlase:
         return (predictions - min_values) / (max_values - min_values + 1e-8)
 
 
+#########################################################################
+# La clase AdaboostMulticlaseMejorado (multiclasificador fuerte-óptimo)
+#########################################################################  
+class AdaboostMulticlaseMejorado:
+    def __init__(self, digitos=10, T=5, A=20):
+        self.digitos = digitos
+        self.classifiers = [Adaboost(T, A) for _ in range(digitos)]
+
+    def fit(self, X, Y):
+        for class_index, classifier in enumerate(self.classifiers):
+            print(f"Entrenando el clasificador multiclase para la clase {class_index}")
+            binary_labels = self._create_binary_labels(Y, class_index)
+            classifier.fit(X, binary_labels, verbose=False)
+
+    def predict(self, X):
+        predictions = np.array([classifier.predict(X) for classifier in self.classifiers])
+        normalized_predictions = (predictions - predictions.min(axis=0)) / (predictions.max(axis=0) - predictions.min(axis=0) + 1e-8)
+        return np.argmax(normalized_predictions, axis=0)
+
+    def _create_binary_labels(self, Y, class_index):
+        return np.where(Y == class_index, 1, -1)
+
+
+#########################################################################
+# Método para probar el rendimiento del Adaboost (tarea 1A y 1B)
+#########################################################################  
 def tareas_1A_y_1B_adaboost_binario(clase, T, A, verbose=False):
     X_entrenamiento, Y_entrenamiento, X_prueba, Y_prueba = load_MNIST_for_adaboost_dig(clase)
     adaboost = Adaboost(T=T, A=A)
@@ -180,7 +218,9 @@ def tareas_1A_y_1B_adaboost_binario(clase, T, A, verbose=False):
     return {"aciertos_entrenamiento": aciertos_entrenamiento, "aciertos_test": aciertos_test, "tiempo_ejecución": t_ejec}
 
 
-
+#########################################################################
+# Método para graficar el rendimiento del Adaboost (tarea 1C)
+#########################################################################  
 def tarea_1C_graficas_rendimiento():
     # Puedes ajustar estos valores según tus necesidades
     T_values = list(range(5, 31, 5))  # Valores de 5 a 30 con incrementos de 5
@@ -212,12 +252,15 @@ def tarea_1C_graficas_rendimiento():
     plt.show()
 
 
+#########################################################################
+# Método para mostrar rendimiento del Adaboost multiclase (tarea 1D)
+#########################################################################  
 def tareas_1D_adaboost_multiclase(T, A):
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
     X_train = X_train.reshape((X_train.shape[0], -1)).astype('float32') / 255
     X_test = X_test.reshape((X_test.shape[0], -1)).astype('float32') / 255
 
-    print(f"Comenzando el entrenamiento del clasificador Adaboost multiclase, T={T}, A={A}...")
+    print(f"\nComenzando el entrenamiento del clasificador Adaboost multiclase, T={T}, A={A}...")
     start_time = time.time()
 
     multi_class_clf = AdaboostMulticlase(digitos=10, T=T, A=A)
@@ -234,9 +277,34 @@ def tareas_1D_adaboost_multiclase(T, A):
     return accuracy
 
 
-    
-     
+#########################################################################
+# Método que mostrar rendimiento de Adaboost multiclase óptimo (tarea 1D)
+######################################################################### 
+def tarea_1E_adaboost_multiclase_mejorado(T, A):
+    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    X_train = X_train.reshape((X_train.shape[0], -1)).astype('float32') / 255
+    X_test = X_test.reshape((X_test.shape[0], -1)).astype('float32') / 255
+
+    print(f"\nComenzando el entrenamiento del clasificador Adaboost multiclase mejorado, T={T}, A={A}...")
+    start_time = time.time()
+
+    multi_class_clf = AdaboostMulticlaseMejorado(digitos=10, T=T, A=A)
+    multi_class_clf.fit(X_train, Y_train)
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
+    predictions = multi_class_clf.predict(X_test)
+    accuracy = np.mean(predictions == Y_test) * 100
+
+    print(f"Entrenamiento completado. Tasa de acierto: {accuracy:.2f}%. Tiempo total: {elapsed_time:.3f} s.")
+
+    return accuracy
+
+
+
 if __name__ == "__main__":
-    #rend_1A = tareas_1A_y_1B_adaboost_binario(clase=5, T=20, A=5, verbose=True)
+    rend_1A = tareas_1A_y_1B_adaboost_binario(clase=5, T=20, A=5, verbose=True)
     #tarea_1C_graficas_rendimiento()
     rend_1D = tareas_1D_adaboost_multiclase(T=100, A=30)
+    #rend_1E = tarea_1E_adaboost_multiclase_mejorado(T=100, A=30)
