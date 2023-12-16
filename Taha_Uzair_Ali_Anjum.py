@@ -6,6 +6,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.datasets import fetch_openml
 import time
 from keras.datasets import mnist
+from mpl_toolkits.mplot3d import Axes3D
 
 
 #########################################################################
@@ -221,35 +222,99 @@ def tareas_1A_y_1B_adaboost_binario(clase, T, A, verbose=False):
 #########################################################################
 # Método para graficar el rendimiento del Adaboost (tarea 1C)
 #########################################################################  
+def calculate_score(accuracy, time, weight_accuracy=0.8, weight_time=0.2):
+    # Calcular la puntuación como una combinación ponderada de la tasa de acierto y el tiempo de ejecución
+    score = weight_accuracy * accuracy - weight_time * time
+    return score
+
+def find_best_combination(combinaciones_validas, get_score_fn):
+    # Obtener puntuaciones para cada combinación
+    scores = [get_score_fn(T, A) for T, A in combinaciones_validas]
+
+    # Encontrar la posición del máximo en la lista de puntuaciones
+    max_score_index = np.argmax(scores)
+
+    return combinaciones_validas[max_score_index]
+
 def tarea_1C_graficas_rendimiento():
-    # Puedes ajustar estos valores según tus necesidades
-    T_values = list(range(5, 31, 5))  # Valores de 5 a 30 con incrementos de 5
-    A_values = list(range(5, 201, 10))  # Valores de 10 a 200 con incrementos de 10
+    # Estos rangos los podemos ajustar en función de nuestras necesidades
+    T_values = list(range(5, 180, 10))  # Valores de 5 a 30 con incrementos de 5
+    A_values = list(range(5, 30, 5))  # Valores de 5 a 180 con incrementos de 10
 
     # Filtrar combinaciones válidas según la restricción T * A ≤ 900
     combinaciones_validas = [(T, A) for T in T_values for A in A_values if T * A <= 900]
 
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection='3d')
+    fig, ax1 = plt.subplots(figsize=(12, 8))
+
+    # Configurar el primer eje Y (tasa de acierto)
+    ax1.set_xlabel('Combinaciones T-A')
+    ax1.set_ylabel('Tasa de Acierto', color='tab:blue')
+
+    # Configurar el segundo eje Y (tiempo de ejecución)
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('Tiempo de Ejecución (s)', color='tab:red')
+
+    accuracies = []  # Mover fuera del bucle
+    times = []  # Mover fuera del bucle
 
     for T, A in combinaciones_validas:
-        accuracies = []
-        times = []
-
         # Reutiliza la función de la tarea 1A para cada combinación de T y A
         result = tareas_1A_y_1B_adaboost_binario(clase=5, T=T, A=A)
 
         accuracies.append(result["aciertos_test"])
         times.append(result["tiempo_ejecución"])
 
-        ax.scatter(T, A, accuracies[0], label=f'T = {T}, A = {A}')
+    # Encontrar la mejor combinación según la tasa de acierto
+    max_acc_index = np.argmax(accuracies)
 
-    ax.set_xlabel('T (Número de iteraciones)')
-    ax.set_ylabel('A (Número de clasificadores débiles)')
-    ax.set_zlabel('Tasa de Acierto')
-    ax.legend()
+    # Encontrar la mejor combinación según el tiempo de ejecución
+    min_time_index = np.argmin(times)
+
+    # Graficar la tasa de acierto en el primer eje Y
+    ax1.plot(range(len(combinaciones_validas)), accuracies, color='tab:blue', marker='o', label='Tasa de Acierto')
+    ax1.scatter(max_acc_index, accuracies[max_acc_index], color='green', marker='*', s=200, label='Mejor Tasa de Acierto')
+
+    # Graficar el tiempo de ejecución en el segundo eje Y
+    ax2.plot(range(len(combinaciones_validas)), times, color='tab:red', marker='s', label='Tiempo de Ejecución')
+    ax2.scatter(min_time_index, times[min_time_index], color='blue', marker='*', s=200, label='Menor Tiempo de Ejecución')
+
+    # Añadir leyendas y título
+    ax1.legend(loc='upper left')
+    ax2.legend(loc='upper right')
+    plt.title('Evolución de la Tasa de Acierto y Tiempo de Ejecución con T y A')
     
+    # Modificar etiquetas del eje x
+    ax1.set_xticks(range(len(combinaciones_validas)))
+    ax1.set_xticklabels([f'{T}-{A}' for T, A in combinaciones_validas], rotation=45, ha='right')
+
+    # Mostrar el valor de T y A correspondiente a la mejor tasa de acierto
+    #print(f"Mejor tasa de acierto para: {combinaciones_validas[max_acc_index]}")
+
+    # Mostrar el valor de T y A correspondiente a la mejor puntuación
+    best_combination = find_best_combination(combinaciones_validas, get_score_fn=lambda T, A: calculate_score(accuracies[-1], times[-1]))
+    #print(f"Mejor puntuación para: {best_combination}")
+
+    # Mostrar el valor de T y A correspondiente al menor tiempo de ejecución
+    #print(f"Mejor tiempo de ejecución para: {combinaciones_validas[min_time_index]}")
+
+
+    # Mostrar la tasa de acierto y el tiempo de ejecución para la mejor tasa de acierto
+    best_accuracy_combination = combinaciones_validas[max_acc_index]
+    accuracy_info = f"Mejor tasa de acierto para {best_accuracy_combination}: Tasa de acierto: {accuracies[max_acc_index]:.2f}%, Tiempo de ejecución: {times[max_acc_index]:.3f} s"
+
+    # Mostrar la tasa de acierto y el tiempo de ejecución para la mejor puntuación
+    best_score_info = f"Mejor puntuación para {best_combination}: Tasa de acierto: {accuracies[-1]:.2f}%, Tiempo de ejecución: {times[-1]:.3f} s"
+
+    # Mostrar la tasa de acierto y el tiempo de ejecución para el menor tiempo de ejecución
+    best_time_combination = combinaciones_validas[min_time_index]
+    min_time_info = f"Mejor tiempo de ejecución para {best_time_combination}: Tasa de acierto: {accuracies[min_time_index]:.2f}%, Tiempo de ejecución: {times[min_time_index]:.3f} s"
+
+    # Mostrar un solo print que incluye la información de los tres apartados
+    print(accuracy_info)
+    print(best_score_info)
+    print(min_time_info)
     plt.show()
+
 
 
 #########################################################################
@@ -304,7 +369,7 @@ def tarea_1E_adaboost_multiclase_mejorado(T, A):
 
 
 if __name__ == "__main__":
-    rend_1A = tareas_1A_y_1B_adaboost_binario(clase=5, T=20, A=5, verbose=True)
+    #rend_1A = tareas_1A_y_1B_adaboost_binario(clase=9, T=45, A=10, verbose=True)
     #tarea_1C_graficas_rendimiento()
-    rend_1D = tareas_1D_adaboost_multiclase(T=100, A=30)
-    #rend_1E = tarea_1E_adaboost_multiclase_mejorado(T=100, A=30)
+    #rend_1D = tareas_1D_adaboost_multiclase(T=100, A=30)
+    rend_1E = tarea_1E_adaboost_multiclase_mejorado(T=100, A=30)
