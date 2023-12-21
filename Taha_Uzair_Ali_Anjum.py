@@ -144,13 +144,15 @@ class Adaboost:
 # La clase AdaboostMulticlase (multiclasificador fuerte-no óptimo)
 #########################################################################     
 class AdaboostMulticlase:
-    def __init__(self, digitos=10, T=5, A=20):
+    def __init__(self, digitos=10, T=5, A=20, verbose=False):
         self.digitos = digitos
+        self.verbose = verbose
         self.classifiers = [Adaboost(T, A) for _ in range(digitos)]
 
     def fit(self, X, Y):
         for class_index, classifier in enumerate(self.classifiers):
-            print(f"Entrenando el clasificador multiclase para la clase {class_index}")
+            if self.verbose:
+                print(f"Entrenando el clasificador multiclase para la clase {class_index}")
             binary_labels = self._create_binary_labels(Y, class_index)
             classifier.fit(X, binary_labels, verbose=False)
 
@@ -387,7 +389,7 @@ def tarea_1C_graficas_rendimiento():
 #########################################################################
 # Método para mostrar rendimiento del Adaboost multiclase (tarea 1D)
 #########################################################################  
-def tareas_1D_adaboost_multiclase(T, A):
+def tareas_1D_adaboost_multiclase(T, A, verbose=False):
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
     X_train = X_train.reshape((X_train.shape[0], -1)).astype('float32') / 255
     X_test = X_test.reshape((X_test.shape[0], -1)).astype('float32') / 255
@@ -395,7 +397,7 @@ def tareas_1D_adaboost_multiclase(T, A):
     print(f"\nComenzando el entrenamiento del clasificador Adaboost multiclase, T={T}, A={A}...")
     start_time = time.time()
 
-    multi_class_clf = AdaboostMulticlase(digitos=10, T=T, A=A)
+    multi_class_clf = AdaboostMulticlase(digitos=10, T=T, A=A, verbose=verbose)
     multi_class_clf.fit(X_train, Y_train)
 
     end_time = time.time()
@@ -491,7 +493,7 @@ def tarea_2B_graficas_rendimiento():
 
     for T, A in combinaciones_validas:
         # Reutiliza la función de la tarea 1D para cada combinación de T y A
-        result = tareas_1D_adaboost_multiclase(T=T, A=A)
+        result = tareas_1D_adaboost_multiclase(T=T, A=A, verbose=False)
 
         accuracies.append(result)
         # Supongamos un tiempo fijo para cada ejecución multiclase
@@ -530,9 +532,9 @@ def tarea_2B_graficas_rendimiento():
 
 
 if __name__ == "__main__":
-    rend_1A = tareas_1A_y_1B_adaboost_binario(clase=9, T=45, A=10, verbose=True)
+    #rend_1A = tareas_1A_y_1B_adaboost_binario(clase=9, T=45, A=10, verbose=True)
     #tarea_1C_graficas_rendimiento()
-    #rend_1D = tareas_1D_adaboost_multiclase(T=40, A=40)
+    rend_1D = tareas_1D_adaboost_multiclase(T=100, A=30, verbose=True)
     #rend_1E = tarea_1E_adaboost_multiclase_mejorado(T=50, A=30)
     #rend_2A = tarea_2A_AdaBoostClassifier_default()
     tarea_2B_graficas_rendimiento()
