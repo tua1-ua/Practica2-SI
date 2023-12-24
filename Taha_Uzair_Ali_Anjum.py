@@ -4,10 +4,8 @@ from sklearn.decomposition import PCA
 from tensorflow import keras
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from sklearn.datasets import fetch_openml
 import time
 from keras.datasets import mnist
-from mpl_toolkits.mplot3d import Axes3D
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from keras.utils import to_categorical
@@ -17,7 +15,9 @@ from keras.optimizers import Adam
 from keras.layers import Conv2D
 from keras.layers import MaxPooling2D
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
-
+import logging, os
+logging.disable(logging.WARNING)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 #########################################################################
 # Cargamos el dataset para un dígito en específico
@@ -470,6 +470,9 @@ def graficas_multiclase_2A():
 
     return accuracies, times
 
+#########################################################################
+# Versión optimizada del clasificador Adaboost multiclase de scikit-learn
+#########################################################################  
 def tarea_2A_AdaBoostClassifier_optimized(n_estimators=50, learning_rate=1.0, reduce_dimensionality=False, pca_components=None, n_jobs=None):
     # Cargamos el dataset de MNIST
     X_train, Y_train, X_test, Y_test = load_MNIST_for_adaboost()
@@ -481,7 +484,7 @@ def tarea_2A_AdaBoostClassifier_optimized(n_estimators=50, learning_rate=1.0, re
         X_test = pca.transform(X_test)
 
     # Configuración de AdaBoostClassifier con un clasificador débil personalizado
-    base_classifier = DecisionTreeClassifier(max_depth=5, min_samples_split=2)
+    base_classifier = DecisionTreeClassifier(max_depth=8, min_samples_split=4)
 
     # Configuración del clasificador débil para paralelización
     base_classifier.n_jobs = n_jobs
@@ -502,7 +505,9 @@ def tarea_2A_AdaBoostClassifier_optimized(n_estimators=50, learning_rate=1.0, re
     print(f'Tasa de acierto del clasificador AdaBoost con {n_estimators} estimadores y tasa de aprendizaje {learning_rate}: {accuracy:.4f}, tiempo de ejecución: {t_ejec:.3f} s.\n')
 
 
-
+#########################################################################
+# Función que construye un modelo MLP con Keras
+######################################################################### 
 def build_mlp_model(input_shape, num_classes, hidden_layers=1, neurons_per_layer=128, activation='relu', output_activation='softmax', optimizer='adam', learning_rate=0.001):
     model = Sequential()
     
@@ -520,6 +525,9 @@ def build_mlp_model(input_shape, num_classes, hidden_layers=1, neurons_per_layer
     
     return model
 
+#########################################################################
+# Clasicador MLP 
+######################################################################### 
 def tarea_2D_AdaBoostClassifier_DecisionTree(hidden_layers=1, neurons_per_layer=128, activation='relu', output_activation='softmax', optimizer='adam', learning_rate=0.001):
     # Cargar los datos de MNIST
     X_train, Y_train, X_test, Y_test = load_MNIST_for_adaboost()
@@ -550,7 +558,9 @@ def tarea_2D_AdaBoostClassifier_DecisionTree(hidden_layers=1, neurons_per_layer=
 
     return test_accuracy
 
-
+#########################################################################
+# Classificador CNN redes neuronales convolucionales
+######################################################################### 
 def tarea_2E_CNN_Keras(n_conv_layers, n_filters, filter_size, n_dense_layers, n_dense_neurons):
     # Cargar datos de MNIST
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
@@ -597,13 +607,16 @@ def tarea_2E_CNN_Keras(n_conv_layers, n_filters, filter_size, n_dense_layers, n_
     return test_accuracy
 
 
+#########################################################################
+# main para ejecutar las tareas
+######################################################################### 
 if __name__ == "__main__":
-    #rend_1A = tareas_1A_y_1B_adaboost_binario(clase=9, T=45, A=10, verbose=True)
+    rend_1A = tareas_1A_y_1B_adaboost_binario(clase=9, T=45, A=10, verbose=True)
     #tarea_1C_graficas_rendimiento()
-    #rend_1D = tareas_1D_adaboost_multiclase(T=30, A=30, verbose=True)
+    #rend_1D = tareas_1D_adaboost_multiclase(T=100, A=30, verbose=True)
     #rend_2A = tarea_2A_AdaBoostClassifier_default(n_estimators=40) # la configuración óptima
     #tarea_2B_graficas_rendimiento(bool_1D=False, bool_2A=True)
-    #rend_2B= tarea_2A_AdaBoostClassifier_optimized(n_estimators=40, learning_rate=0.1, reduce_dimensionality=True, pca_components=20, n_jobs=-1)
+    #rend_2B= tarea_2A_AdaBoostClassifier_optimized(n_estimators=10, learning_rate=0.1, reduce_dimensionality=True, pca_components=20, n_jobs=-1)
     #rend_2D = tarea_2D_AdaBoostClassifier_DecisionTree(hidden_layers=2, neurons_per_layer=256, learning_rate=0.01)
-    rend_2E_CNN = tarea_2E_CNN_Keras(n_conv_layers=2, n_filters=32, filter_size=3, n_dense_layers=2, n_dense_neurons=128)
+    #rend_2E_CNN = tarea_2E_CNN_Keras(n_conv_layers=2, n_filters=32, filter_size=3, n_dense_layers=2, n_dense_neurons=128)
 
